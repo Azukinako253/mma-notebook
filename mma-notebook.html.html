@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMA NOTEBOOK</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --surface: #111116;
+    --surface2: #18181f;
+    --surface3: #1e1e28;
+    --border: #2a2a38;
+    --accent: #e8341c;
+    --accent2: #f7a800;
+    --accent3: #1cabe8;
+    --text: #e8e8f0;
+    --text-muted: #7070a0;
+    --text-dim: #3a3a5a;
+    --strike: #e8341c;
+    --grapple: #f7a800;
+    --ground: #1cabe8;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === NOISE OVERLAY === */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* === HEADER === */
+  header {
+    position: relative;
+    padding: 48px 40px 32px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  header::before {
+    content: 'MMA';
+    position: absolute;
+    right: -20px;
+    top: -30px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 220px;
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(232, 52, 28, 0.07);
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .header-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .header-tag::before {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 8vw, 90px);
+    letter-spacing: 0.04em;
+    line-height: 0.9;
+    color: var(--text);
+  }
+  h1 span { color: var(--accent); }
+
+  .header-meta {
+    margin-top: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* === TABS === */
+  .tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 40px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(10, 10, 12, 0.95);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 20px 32px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+
+  .tab-btn.active[data-tab="strike"] { color: var(--strike); border-bottom-color: var(--strike); }
+  .tab-btn.active[data-tab="grapple"] { color: var(--grapple); border-bottom-color: var(--grapple); }
+  .tab-btn.active[data-tab="ground"] { color: var(--ground); border-bottom-color: var(--ground); }
+
+  .tab-icon { font-size: 18px; }
+
+  /* === CONTENT === */
+  .tab-content { display: none; padding: 40px; max-width: 1100px; animation: fadeIn 0.3s ease; }
+  .tab-content.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === SECTION TITLE === */
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 0.06em;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* === CARD GRID === */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .card:hover { transform: translateY(-2px); }
+
+  .card[data-accent="strike"] { border-top: 3px solid var(--strike); }
+  .card[data-accent="strike"]:hover { border-color: var(--strike); }
+  .card[data-accent="grapple"] { border-top: 3px solid var(--grapple); }
+  .card[data-accent="grapple"]:hover { border-color: var(--grapple); }
+  .card[data-accent="ground"] { border-top: 3px solid var(--ground); }
+  .card[data-accent="ground"]:hover { border-color: var(--ground); }
+
+  .card-header {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+
+  .card ul { list-style: none; }
+  .card ul li {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.5;
+  }
+  .card ul li:last-child { border-bottom: none; }
+  .card ul li::before {
+    content: '›';
+    color: var(--text-dim);
+    flex-shrink: 0;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  /* === COMBO BLOCK === */
+  .combo-list { margin-bottom: 40px; }
+
+  .combo-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--strike);
+    border-radius: 2px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    transition: background 0.2s;
+  }
+  .combo-item:hover { background: var(--surface2); }
+
+  .combo-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--text-dim);
+    line-height: 1;
+    min-width: 32px;
+  }
+
+  .combo-body { flex: 1; }
+  .combo-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .combo-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .combo-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* === WARNING BLOCK === */
+  .warning-block {
+    background: rgba(232, 52, 28, 0.05);
+    border: 1px solid rgba(232, 52, 28, 0.25);
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+  }
+  .warning-block.yellow {
+    background: rgba(247, 168, 0, 0.05);
+    border-color: rgba(247, 168, 0, 0.25);
+    border-left-color: var(--accent2);
+  }
+  .warning-block.blue {
+    background: rgba(28, 171, 232, 0.05);
+    border-color: rgba(28, 171, 232, 0.25);
+    border-left-color: var(--accent3);
+  }
+
+  .warning-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .warning-block.yellow .warning-title { color: var(--accent2); }
+  .warning-block.blue .warning-title { color: var(--accent3); }
+
+  .warning-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  /* === IMAGE PLACEHOLDER === */
+  .img-zone {
+    background: var(--surface2);
+    border: 1px dashed var(--border);
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 32px;
+    margin-bottom: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .img-zone:hover { border-color: var(--text-muted); background: var(--surface3); }
+  .img-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .img-zone-icon { font-size: 32px; opacity: 0.4; }
+  .img-zone-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+  .img-zone-sub { font-size: 11px; color: var(--text-dim); }
+
+  .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .img-thumb {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    aspect-ratio: 4/3;
+  }
+  .img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-thumb .img-remove {
+    position: absolute;
+    top: 6px; right: 6px;
+    background: rgba(0,0,0,0.8);
+    border: none;
+    color: var(--accent);
+    font-size: 14px;
+    width: 24px; height: 24px;
+    border-radius: 2px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .img-thumb:hover .img-remove { opacity: 1; }
+  .img-caption {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 6px 8px;
+    background: var(--surface);
+  }
+
+  /* === TWO-COL === */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* === TECHNIQUE TABLE === */
+  .technique-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 40px;
+    font-size: 13px;
+  }
+  .technique-table th {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  .technique-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(42,42,56,0.5);
+    color: var(--text-muted);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .technique-table tr:hover td { background: var(--surface); }
+  .technique-table .tech-name { color: var(--text); font-weight: 500; }
+
+  /* === DIVIDER === */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 36px 0;
+  }
+
+  /* === SCROLLBAR === */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* === BADGE === */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .badge-red { background: rgba(232,52,28,0.15); color: var(--strike); border: 1px solid rgba(232,52,28,0.3); }
+  .badge-yellow { background: rgba(247,168,0,0.15); color: var(--grapple); border: 1px solid rgba(247,168,0,0.3); }
+  .badge-blue { background: rgba(28,171,232,0.15); color: var(--ground); border: 1px solid rgba(28,171,232,0.3); }
+
+  /* === NOTE EDITABLE === */
+  .editable-note {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 16px;
+    min-height: 80px;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .editable-note:focus { border-color: var(--text-muted); }
+  .editable-note:empty::before {
+    content: 'メモを追加...';
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  .note-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.2em;
+    margin-bottom: 6px;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-tag">Personal Training Notes</div>
+  <h1>MMA <span>NOTEBOOK</span></h1>
+  <div class="header-meta">STRIKING · GRAPPLING · GROUND &amp; POUND · SUBMISSION</div>
+</header>
+
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="strike" onclick="switchTab('strike')">
+    <span class="tab-icon">🥊</span> 打撃
+  </button>
+  <button class="tab-btn" data-tab="grapple" onclick="switchTab('grapple')">
+    <span class="tab-icon">🤼</span> 組み
+  </button>
+  <button class="tab-btn" data-tab="ground" onclick="switchTab('ground')">
+    <span class="tab-icon">🥋</span> 寝技
+  </button>
+</nav>
+
+<!-- ==================== 打撃 ==================== -->
+<div class="tab-content active" id="tab-strike">
+
+  <div class="section-label">Section 01</div>
+  <div class="section-title" style="color:var(--strike)">ファイトスタイル</div>
+
+  <div class="card-grid">
+    <div class="card" data-accent="strike">
+      <div class="card-header">スタンス</div>
+      <ul>
+        <li>オーソドックス（左構え）</li>
+        <li>重心は両足均等、膝を軽く曲げる</li>
+        <li>顎を引き、ガードは顔の横に密着</li>
+        <li>肘は締め、脇腹をカバー</li>
+      </ul>
+    </div>
+    <div class="card" data-accent="strike">
+      <div class="card-header">距離管理</div>
+      <ul>
+        <li>ロングレンジ：ジャブで牽制・スペース確保</li>
+        <li>ミドルレンジ：コンビネーションの主戦場</li>
+        <li>クロスレンジ：クリンチ移行 or ショートパンチ</li>
+        <li>常にフットワークで最適距離を維持</li>
+      </ul>
+    </div>
+    <div class="card" data-accent="strike">
+      <div class="card-header">プレッシャーと動き</div>
+      <ul>
+        <li>前に出る時は左足から、引く時は右足から</li>
+        <li>サークリングで相手の右（自分の左）に動く</li>
+        <li>打ったら必ず戻す・距離を取る</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 画像エリア -->
+  <div class="section-label">Photo / Reference</div>
+  <div id="strike-imgs" class="img-grid"></div>
+  <div class="img-zone" onclick="triggerUpload('strike-upload')">
+    <input type="file" id="strike-upload" accept="image/*" multiple onchange="handleImages(event, 'strike-imgs')">
+    <div class="img-zone-icon">＋</div>
+    <div class="img-zone-label">画像をアップロード</div>
+    <div class="img-zone-sub">PNG · JPG · WEBP</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">Section 02</div>
+  <div class="section-title" style="color:var(--strike)">コンビネーション</div>
+
+  <div class="combo-list">
+    <div class="combo-item">
+      <div class="combo-num">01</div>
+      <div class="combo-body">
+        <div class="combo-name">ジャブ → ストレート</div>
+        <div class="combo-desc">基本中の基本。ジャブで距離を測りながら相手のガードを開かせ、ストレートで仕留める。</div>
+        <div class="combo-tags">
+          <span class="tag">ベーシック</span><span class="tag">距離確認</span>
+        </div>
+      </div>
+    </div>
+    <div class="combo-item">
+      <div class="combo-num">02</div>
+      <div class="combo-body">
+        <div class="combo-name">ジャブ → ストレート → 左フック</div>
+        <div class="combo-desc">3連コンボ。ストレートで相手が引いたところに左フックを合わせる。リズムが重要。</div>
+        <div class="combo-tags">
+          <span class="tag">スタンダード</span><span class="tag">KOルート</span>
+        </div>
+      </div>
+    </div>
+    <div class="combo-item">
+      <div class="combo-num">03</div>
+      <div class="combo-body">
+        <div class="combo-name">ジャブ → ボディストレート → 顔フック</div>
+        <div class="combo-desc">ボディへの攻撃で相手のガードを下げ、顔面へのフックに繋げる。ガード崩しに効果的。</div>
+        <div class="combo-tags">
+          <span class="tag">ボディ攻め</span><span class="tag">ガード崩し</span>
+        </div>
+      </div>
+    </div>
+    <div class="combo-item">
+      <div class="combo-num">04</div>
+      <div class="combo-body">
+        <div class="combo-name">ワンツー → テイクダウン</div>
+        <div class="combo-desc">MMAならではの打撃からの組み移行。ストレートを打ちながらレベルチェンジしてダブルレッグ。</div>
+        <div class="combo-tags">
+          <span class="tag">MMA特有</span><span class="tag">組み移行</span><span class="tag">重要</span>
+        </div>
+      </div>
+    </div>
+    <div class="combo-item">
+      <div class="combo-num">05</div>
+      <div class="combo-body">
+        <div class="combo-name">ミドルキック → ストレート</div>
+        <div class="combo-desc">キックで相手の意識を下に向けてからストレート。または逆に顔面を打ったあとミドルを蹴る。</div>
+        <div class="combo-tags">
+          <span class="tag">ミックス</span><span class="tag">注意分散</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">カスタムコンボメモ</div>
+  <div class="note-label">// FREE NOTE</div>
+  <div class="editable-note" contenteditable="true"></div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">Section 03</div>
+  <div class="section-title" style="color:var(--strike)">ポイント &amp; 意識</div>
+
+  <div class="card-grid">
+    <div class="card" data-accent="strike">
+      <div class="card-header">打撃の基本ポイント</div>
+      <ul>
+        <li>体重移動を必ず伴う。腕だけで打たない</li>
+        <li>打った後は必ずガードを戻す</li>
+        <li>呼吸は打つ瞬間に吐く（インパクト時）</li>
+        <li>ヒットした後に前に出てプレッシャー</li>
+        <li>視線は相手の胸〜肩あたり（全体を見る）</li>
+      </ul>
+    </div>
+    <div class="card" data-accent="strike">
+      <div class="card-header">フットワーク</div>
+      <ul>
+        <li>常に動き続ける。止まらない</li>
+        <li>クロスステップは使わない（転倒リスク）</li>
+        <li>打つ時はステップインしながら</li>
+        <li>距離が詰まったらすぐピボットorサークル</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">Section 04</div>
+  <div class="section-title" style="color:var(--strike)">よく陥りやすいミス</div>
+
+  <div class="warning-block">
+    <div class="warning-title">⚠ MISTAKE 01 — ガードを下げる</div>
+    <div class="warning-text">打った後に腕を下げたままにしてしまう。特にフック後。必ず打ち終わりに両手を顔横に戻す意識を持つ。</div>
+  </div>
+  <div class="warning-block">
+    <div class="warning-title">⚠ MISTAKE 02 — 腕だけで打つ</div>
+    <div class="warning-text">肩・腰の回転が伴っていない。パワーが出ないだけでなく、バランスも崩れる。体全体を使うこと。</div>
+  </div>
+  <div class="warning-block">
+    <div class="warning-title">⚠ MISTAKE 03 — 同じコンビネーションを繰り返す</div>
+    <div class="warning-text">相手にリズムを読まれる。バリエーションを持ち、打つ順序・タイミングをランダムにする。</div>
+  </div>
+  <div class="warning-block">
+    <div class="warning-title">⚠ MISTAKE 04 — テイクダウン後の打撃を忘れる</div>
+    <div class="warning-text">MMAでは組みの後も打撃が有効。テイクダウン時に頭が前に出て被弾するケースが多い。レベルチェンジ時の顎の位置に注意。</div>
+  </div>
+
+</div>
+
+<!-- ==================== 組み ==================== -->
+<div class="tab-content" id="tab-grapple">
+
+  <div class="section-label">Section 01</div>
+  <div class="section-title" style="color:var(--grapple)">基本的な崩し・払い・押さえ</div>
+
+  <div class="card-grid">
+    <div class="card" data-accent="grapple">
+      <div class="card-header">崩し</div>
+      <ul>
+        <li>引き手で相手を引き込む（内側から）</li>
+        <li>釣り手で相手の軸を崩す（上から押える）</li>
+        <li>相手が踏ん張った瞬間に逆方向へ崩す</li>
+        <li>膝を曲げ、自分の重心を低く保つ</li>
+      </ul>
+    </div>
+    <div class="card" data-accent="grapple">
+      <div class="card-header">払い技の原則</div>
+      <ul>
+        <li>タイミングは相手が体重を乗せた瞬間</li>
+        <li>払いは足首〜膝下。膝上は危険</li>
+        <li>手と足のタイミングを合わせる</li>
+        <li>体ごと回転して投げに繋げる</li>
+      </ul>
+    </div>
+    <div class="card" data-accent="grapple">
+      <div class="card-header">押さえ込みのポイント</div>
+      <ul>
+        <li>重心を低く落として密着</li>
+        <li>相手の腕を封じながら上体をコントロール</li>
+        <li>横に逃げられないよう膝で挟む</li>
+        <li>グラウンドへの移行は素早く</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 画像エリア -->
+  <div class="section-label">Photo / Reference</div>
+  <div id="grapple-imgs" class="img-grid"></div>
+  <div class="img-zone" onclick="triggerUpload('grapple-upload')">
+    <input type="file" id="grapple-upload" accept="image/*" multiple onchange="handleImages(event, 'grapple-imgs')">
+    <div class="img-zone-icon">＋</div>
+    <div class="img-zone-label">画像をアップロード</div>
+    <div class="img-zone-sub">PNG · JPG · WEBP</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">Section 02</div>
+  <div class="section-title" style="color:var(--grapple)">使える技一覧</div>
+
+  <table class="technique-table">
+    <thead>
+      <tr>
+        <th>技名</th>
+        <th>種別</th>
+        <th>ポイント</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tech-name">ダブルレッグ</td>
+        <td><span class="badge badge-yellow">タックル</span></td>
+        <td>レベルチェンジ → 両膝の外に入る → ドライブ</td>
+      </tr>
+      <tr>
+        <td class="tech-name">シングルレッグ</td>
+        <td><span class="badge badge-yellow">タックル</span></td>
+        <td>片足を抱えて外から回り込む or 内側へ崩す</td>
+      </tr>
+      <tr>
+        <td class="tech-name">首投げ（オーバーフック）</td>
+        <td><span class="badge badge-yellow">投げ</span></td>
+        <td>クリンチから肩を差してオーバーフック。引いて回転</td>
+      </tr>
+      <tr>
+        <td class="tech-name">内股</td>
+        <td><span class="badge badge-yellow">投げ</span></td>
+        <td>崩しと同時に膝を入れて相手の腿を引き上げる</td>
+      </tr>
+      <tr>
+        <td class="tech-name">大外刈り</td>
+        <td><span class="badge badge-yellow">刈り</span></td>
+        <td>後ろに崩しながら後ろ足を刈る。前傾注意</td>
+      </tr>
+      <tr>
+        <td class="tech-name">クリンチからのニーリフト</td>
+        <td><span class="badge badge-red">打撃連携</span></td>
+        <td>クリンチ状態で膝蹴り。MMAでは有効打として重要</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-label">カスタム技メモ</div>
+  <div class="note-label">// FREE NOTE</div>
+  <div class="editable-note" contenteditable="true"></div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">Section 03</div>
+  <div class="section-title" style="color:var(--grapple)">陥りやすいミス</div>
+
+  <div class="warning-block" style="border-left-color:var(--grapple);background:rgba(247,168,0,0.05);border-color:rgba(247,168,0,0.25)">
+    <div class="warning-title" style="color:var(--grapple)">⚠ MISTAKE 01 — 頭が下がりすぎる</div>
+    <div class="warning-text">タックル時に頭が下に向きすぎると被弾リスク大。頭を相手の体の横につけ、斜め前を向く。</div>
+  </div>
+  <div class="warning-block" style="border-left-color:var(--grapple);background:rgba(247,168,0,0.05);border-color:rgba(247,168,0,0.25)">
+    <div class="warning-title" style="color:var(--grapple)">⚠ MISTAKE 02 — 腰が引けたまま入る</div>
+    <div class="warning-text">腰を引いたままタックルに入ると相手にギロチンを狙われる。前傾しながら腰を低く落として入る。</div>
+  </div>
+  <div class="warning-block" style="border-left-color:var(--grapple);background:rgba(247,168,0,0.05);border-color:rgba(247,168,0,0.25)">
+    <div class="warning-title" style="color:var(--grapple)">⚠ MISTAKE 03 — 投げた後に追わない</div>
+    <div class="warning-text">投げっぱなしでポジションを確保できない。相手をコントロールしながら投げ、すぐトップポジションを取る。</div>
+  </div>
+  <div class="warning-block" style="border-left-color:var(--grapple);background:rgba(247,168,0,0.05);border-color:rgba(247,168,0,0.25)">
+    <div class="warning-title" style="color:var(--grapple)">⚠ MISTAKE 04 — クリンチで疲弊する</div>
+    <div class="warning-text">クリンチで力任せに押し合うと体力を消耗する。ポジションと動きで優位を作る。引いて崩す。</div>
+  </div>
+
+</div>
+
+<!-- ==================== 寝技 ==================== -->
+<div class="tab-content" id="tab-ground">
+
+  <!-- ===== 防御 ===== -->
+  <div class="badge badge-blue" style="margin-bottom:12px">DEFENSE</div>
+  <div class="section-label">Section 01</div>
+  <div class="section-title" style="color:var(--ground)">各態勢からのエスケープ</div>
+
+  <div class="two-col">
+    <div>
+      <div class="card" data-accent="ground" style="margin-bottom:12px">
+        <div class="card-header">マウントから</div>
+        <ul>
+          <li>ブリッジ＆ロール：腰を大きく跳ね上げ横に倒す</li>
+          <li>エルボーニーエスケープ：肘と膝を連動してスペース作り</li>
+          <li>相手の体重が一方に乗った瞬間に動く</li>
+          <li>慌てて腕を出さない（アームバー狙われる）</li>
+        </ul>
+      </div>
+      <div class="card" data-accent="ground">
+        <div class="card-header">バックマウントから</div>
+        <ul>
+          <li>フックを外す：足首を絡めたフックを解除</li>
+          <li>横に崩して半身になる（ハーフガード移行）</li>
+          <li>首へのチョーク攻撃を防ぎながら動く</li>
+          <li>腕を使いすぎない。体全体で逃げる</li>
+        </ul>
+      </div>
+    </div>
+    <div>
+      <div class="card" data-accent="ground" style="margin-bottom:12px">
+        <div class="card-header">サイドポジションから</div>
+        <ul>
+          <li>インサイドポジションをキープ（肘を押し込む）</li>
+          <li>相手の腕の下にスペースを作りガードへ</li>
+          <li>ニーシールドで相手の体重を受け止める</li>
+          <li>無理に起き上がらず、まず横を向く</li>
+        </ul>
+      </div>
+      <div class="card" data-accent="ground">
+        <div class="card-header">ガードポジションから</div>
+        <ul>
+          <li>クローズドガード：脚でコントロールしながら動く</li>
+          <li>相手の立ち上がりに合わせてスイープ</li>
+          <li>ハイガードでチョーク・三角を狙う</li>
+          <li>オープンガードへの移行タイミングを掴む</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 画像エリア -->
+  <div class="section-label">Photo / Reference</div>
+  <div id="ground-imgs" class="img-grid"></div>
+  <div class="img-zone" onclick="triggerUpload('ground-upload')">
+    <input type="file" id="ground-upload" accept="image/*" multiple onchange="handleImages(event, 'ground-imgs')">
+    <div class="img-zone-icon">＋</div>
+    <div class="img-zone-label">画像をアップロード</div>
+    <div class="img-zone-sub">PNG · JPG · WEBP</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">Section 02</div>
+  <div class="section-title" style="color:var(--ground)">注意事項</div>
+
+  <div class="warning-block blue">
+    <div class="warning-title">📋 NOTE 01 — 体力温存</div>
+    <div class="warning-text">グラウンドで焦って全力で動くと急激に疲弊する。深呼吸を意識し、動くタイミングを見極める。</div>
+  </div>
+  <div class="warning-block blue">
+    <div class="warning-title">📋 NOTE 02 — フレームを作る</div>
+    <div class="warning-text">エスケープは腕でフレームを作り相手を押し離してから動く。密着したまま逃げようとしない。</div>
+  </div>
+  <div class="warning-block blue">
+    <div class="warning-title">📋 NOTE 03 — 首を守る</div>
+    <div class="warning-text">常に顎を引き首を守る意識を持つ。チョークやギロチンは首が伸びた瞬間に決まる。</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ===== 攻撃 ===== -->
+  <div class="badge badge-red" style="margin-bottom:12px">OFFENSE</div>
+  <div class="section-label">Section 03</div>
+  <div class="section-title" style="color:var(--ground)">基本的な攻め方</div>
+
+  <div class="combo-list">
+    <div class="combo-item" style="border-left-color:var(--ground)">
+      <div class="combo-num" style="color:var(--ground)">01</div>
+      <div class="combo-body">
+        <div class="combo-name" style="color:var(--ground)">ポジション → サブミッション</div>
+        <div class="combo-desc">まず有利なポジションを取り、そこからサブミッションを狙う。ポジションなしで技を狙わない。</div>
+        <div class="combo-tags"><span class="tag">基本原則</span></div>
+      </div>
+    </div>
+    <div class="combo-item" style="border-left-color:var(--ground)">
+      <div class="combo-num" style="color:var(--ground)">02</div>
+      <div class="combo-body">
+        <div class="combo-name" style="color:var(--ground)">パウンド → 関節技</div>
+        <div class="combo-desc">MMA特有の攻め。パウンドで相手が防御に意識を向けた隙にチョークやアームバーへ移行。</div>
+        <div class="combo-tags"><span class="tag">MMA特有</span><span class="tag">重要</span></div>
+      </div>
+    </div>
+    <div class="combo-item" style="border-left-color:var(--ground)">
+      <div class="combo-num" style="color:var(--ground)">03</div>
+      <div class="combo-body">
+        <div class="combo-name" style="color:var(--ground)">スイープ → トップキープ</div>
+        <div class="combo-desc">下からスイープしてトップポジションに逆転。トップを取ったらパスを急がず重心を安定させる。</div>
+        <div class="combo-tags"><span class="tag">逆転</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">Section 04</div>
+  <div class="section-title" style="color:var(--ground)">使える技一覧</div>
+
+  <table class="technique-table">
+    <thead>
+      <tr>
+        <th>技名</th>
+        <th>種別</th>
+        <th>ポイント</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tech-name">リアネイキッドチョーク</td>
+        <td><span class="badge badge-blue">絞め</span></td>
+        <td>バックマウントから。腕を顎の下に深く差し込む</td>
+      </tr>
+      <tr>
+        <td class="tech-name">ギロチンチョーク</td>
+        <td><span class="badge badge-blue">絞め</span></td>
+        <td>相手のタックル時に頭を抱えて絞める。腰を引かない</td>
+      </tr>
+      <tr>
+        <td class="tech-name">三角絞め</td>
+        <td><span class="badge badge-blue">絞め</span></td>
+        <td>ガードから脚で三角を作る。膝を閉じて腰を浮かせる</td>
+      </tr>
+      <tr>
+        <td class="tech-name">アームバー</td>
+        <td><span class="badge badge-red">関節</span></td>
+        <td>肘を伸ばして腰で押し上げる。肩を90度以上立てる</td>
+      </tr>
+      <tr>
+        <td class="tech-name">キムラ</td>
+        <td><span class="badge badge-red">関節</span></td>
+        <td>サイドからorガードから肩関節を極める。素早く腕を取る</td>
+      </tr>
+      <tr>
+        <td class="tech-name">アメリカーナ</td>
+        <td><span class="badge badge-red">関節</span></td>
+        <td>マウントorサイドから。手首を曲げながら肩を極める</td>
+      </tr>
+      <tr>
+        <td class="tech-name">ヒールフック</td>
+        <td><span class="badge badge-red">関節</span></td>
+        <td>足首を抱えてかかとを捻る。膝への負荷大・注意</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-label">フリーノート</div>
+  <div class="note-label">// FREE NOTE</div>
+  <div class="editable-note" contenteditable="true"></div>
+
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+function triggerUpload(id) {
+  document.getElementById(id).click();
+}
+
+function handleImages(event, gridId) {
+  const files = event.target.files;
+  const grid = document.getElementById(gridId);
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const thumb = document.createElement('div');
+      thumb.className = 'img-thumb';
+      thumb.innerHTML = `
+        <img src="${e.target.result}" alt="${file.name}">
+        <button class="img-remove" onclick="this.closest('.img-thumb').remove()" title="削除">✕</button>
+        <div class="img-caption">${file.name.replace(/\.[^.]+$/, '')}</div>
+      `;
+      grid.appendChild(thumb);
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
+}
+</script>
+</body>
+</html>
