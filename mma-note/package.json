@@ -1,0 +1,19 @@
+{
+  "name": "mma-note",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "serve public -l 5173 -o",
+    "build": "rimraf dist && copyfiles -u 1 \"public/**/*\" dist",
+    "preview": "serve dist -l 4173 -o",
+    "test": "node --test tests",
+    "verify": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "copyfiles": "^2.4.1",
+    "rimraf": "^5.0.10",
+    "serve": "^14.2.4"
+  }
+}
