@@ -1,11 +1,13 @@
 {
   "name": "mma-note",
   "private": true,
+  "type": "module",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "dev": "serve public -l 5173 -o",
+    "dev": "node server/index.js",
+    "static": "serve public -l 5173 -o",
     "build": "rimraf dist && copyfiles -u 1 \"public/**/*\" dist",
     "preview": "serve dist -l 4173 -o",
     "test": "node --test tests/*.test.mjs",
@@ -15,5 +17,10 @@
     "copyfiles": "^2.4.1",
     "rimraf": "^5.0.10",
     "serve": "^14.2.4"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "express": "^5.2.1",
+    "multer": "^2.3.0"
   }
 }
