@@ -53,6 +53,28 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_blocks_tab ON blocks(tab);
   CREATE INDEX IF NOT EXISTS idx_items_block ON items(block_id);
+
+  -- クイズ：「こういう状況ならどう対処する？」という状況設定
+  CREATE TABLE IF NOT EXISTS scenarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL CHECK (category IN ('strike', 'grapple', 'ground')),
+    situation TEXT NOT NULL,
+    position INTEGER NOT NULL
+  );
+
+  -- クイズの選択肢。SQLiteにbool型は無いので、正解フラグはINTEGER(0/1)で持つ
+  -- is_correctは1つのシナリオに複数個1があってもよい（実戦では正解が複数あり得るため）
+  CREATE TABLE IF NOT EXISTS scenario_choices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scenario_id INTEGER NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+    label TEXT NOT NULL,
+    is_correct INTEGER NOT NULL DEFAULT 0,
+    explanation TEXT NOT NULL DEFAULT '',
+    position INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_scenarios_category ON scenarios(category);
+  CREATE INDEX IF NOT EXISTS idx_scenario_choices_scenario ON scenario_choices(scenario_id);
 `);
 
 // ---------- 初期データ（アプリに元々あった内容をそのまま種データとして投入）----------
@@ -293,3 +315,79 @@ function seedIfEmpty() {
 }
 
 seedIfEmpty();
+
+// ---------- クイズの初期データ ----------
+
+function seedQuizIfEmpty() {
+  const { count } = db.prepare("SELECT COUNT(*) AS count FROM scenarios").get();
+  if (count > 0) return;
+
+  const insertScenario = db.prepare(
+    "INSERT INTO scenarios (category, situation, position) VALUES (?, ?, ?)"
+  );
+  const insertChoice = db.prepare(
+    `INSERT INTO scenario_choices (scenario_id, label, is_correct, explanation, position)
+     VALUES (?, ?, ?, ?, ?)`
+  );
+
+  const seedScenarios = [
+    {
+      category: "ground",
+      situation: "相手に倒され、マウントを取られそうです。どうする？",
+      choices: [
+        { label: "エビ（ヒップエスケープ）で腰を抜き、脛でフレームを作る", correct: true, explanation: "スペースを作って半身に戻す基本の逃げ方。フレームで相手の体重を受け止められる。" },
+        { label: "ブリッジで腰を前後に動かし、相手を乗せない", correct: true, explanation: "相手が体重を預けて安定する前に崩す有効な一手。エビと組み合わせるとさらに効果的。" },
+        { label: "上半身を起こし、相手に抱きついて動きを封じる", correct: false, explanation: "仰向けのまま密着すると首を差し出す形になりやすく、ギロチンなどを狙われるリスクが高い。優先度は低い。" },
+      ],
+    },
+    {
+      category: "ground",
+      situation: "バックマウントを取られ、両足のフックを入れられました。まず何をする？",
+      choices: [
+        { label: "フックを外すことを最優先し、片方ずつ足首を掻き出す", correct: true, explanation: "フックが残っている限り相手のコントロールが続く。まず片方を外すのが定石。" },
+        { label: "首を守るため両手を顔の前で組んで丸まる", correct: false, explanation: "首は一時的に守れるが、体を丸めるとさらにコントロールされやすくなる。守りながらも動きを止めないことが大切。" },
+        { label: "顎を引きながら片方の肩を内側に入れて半身になる", correct: true, explanation: "チョークを防ぎながらポジションを変える動き。フック解除とセットで行うと効果的。" },
+      ],
+    },
+    {
+      category: "grapple",
+      situation: "タックルに入られ、頭を抱えられそうです（ギロチン狙い）。どうする？",
+      choices: [
+        { label: "顎を引き、頭を外側に抜きながら腰を落とす", correct: true, explanation: "首が伸びきる前に空間を作ることで、絞めが深く入るのを防げる。" },
+        { label: "そのまま前に進んでテイクダウンを完成させにいく", correct: false, explanation: "首が極まりかけた状態で前進すると、絞めがさらに深く入ってしまう危険がある。" },
+        { label: "片手で相手の絞めている腕を剥がしながら頭の位置を変える", correct: true, explanation: "絞めている腕そのものに対処しつつ頭の角度を変えるのは有効な対処。" },
+      ],
+    },
+    {
+      category: "strike",
+      situation: "距離を詰められてクリンチされました。打撃を継続したい場合どうする？",
+      choices: [
+        { label: "アンダーフックを取りながら体を離して距離を作る", correct: true, explanation: "相手の腕の内側を制すことで、押し返して再び距離を作りやすくなる。" },
+        { label: "そのまま組み合って体力を消耗しながら耐える", correct: false, explanation: "クリンチでの力比べは体力を大きく消耗する。ポジションと動きで優位を作るべき。" },
+        { label: "膝蹴り（ニー）を差し込みつつ距離を管理する", correct: true, explanation: "MMAではクリンチ中の膝蹴りは有効打になり得る。距離管理と攻撃を両立できる。" },
+      ],
+    },
+    {
+      category: "ground",
+      situation: "相手をクローズドガードの中に収めています。攻める際の優先順位は？",
+      choices: [
+        { label: "まず手首や袖を掴んでコントロールを作ってから技に入る", correct: true, explanation: "コントロールを先に作ることで、技に入る際の失敗リスクを減らせる。" },
+        { label: "いきなり腕十字など極端に踏み込む", correct: false, explanation: "コントロールが無いまま技に入るとパスガードやパウンドを許しやすい。" },
+        { label: "膝を締めて相手の姿勢を崩しながらスイープや絞めを狙う", correct: true, explanation: "姿勢を崩すこと自体が次の技への良い布石になる。" },
+      ],
+    },
+  ];
+
+  const insertAll = db.transaction((scenarios) => {
+    scenarios.forEach((scenario, scenarioPosition) => {
+      const info = insertScenario.run(scenario.category, scenario.situation, scenarioPosition);
+      scenario.choices.forEach((choice, choicePosition) => {
+        insertChoice.run(info.lastInsertRowid, choice.label, choice.correct ? 1 : 0, choice.explanation, choicePosition);
+      });
+    });
+  });
+
+  insertAll(seedScenarios);
+}
+
+seedQuizIfEmpty();
