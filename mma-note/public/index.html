@@ -1,12 +1,124 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=mma-notebook.html">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MMA NOTEBOOK</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMA NOTEBOOK</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="script.js" defer></script>
 </head>
 <body>
-  <p><a href="mma-notebook.html">MMA NOTEBOOK を開く</a></p>
+
+<header>
+  <div class="header-tag">Personal Training Notes</div>
+  <h1>MMA <span>NOTEBOOK</span></h1>
+  <div class="header-meta">STRIKING · GRAPPLING · GROUND &amp; POUND · SUBMISSION</div>
+</header>
+
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="strike" onclick="switchTab('strike')">
+    <span class="tab-icon">🥊</span> 打撃
+  </button>
+  <button class="tab-btn" data-tab="grapple" onclick="switchTab('grapple')">
+    <span class="tab-icon">🤼</span> 組み
+  </button>
+  <button class="tab-btn" data-tab="ground" onclick="switchTab('ground')">
+    <span class="tab-icon">🥋</span> 寝技
+  </button>
+</nav>
+
+<!-- ==================== 打撃 ==================== -->
+<div class="tab-content active" id="tab-strike" data-tab="strike">
+
+  <div class="section-label">Photo / Reference</div>
+  <div id="strike-imgs" class="img-grid"></div>
+  <div class="img-zone" onclick="triggerUpload('strike-upload')">
+    <input type="file" id="strike-upload" accept="image/*" multiple onchange="handleImages(event, 'strike')">
+    <div class="img-zone-icon">＋</div>
+    <div class="img-zone-label">画像をアップロード</div>
+    <div class="img-zone-sub">PNG · JPG · WEBP</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="blocks" id="blocks-strike" data-tab="strike"></div>
+  <button type="button" class="add-block-btn" onclick="openBlockModal('strike')">＋ 新しいセクションを追加</button>
+
+  <div class="divider"></div>
+
+  <div class="section-label">フリーノート</div>
+  <div class="note-label">// FREE NOTE</div>
+  <div class="editable-note" contenteditable="true" data-note-key="strike"></div>
+
+</div>
+
+<!-- ==================== 組み ==================== -->
+<div class="tab-content" id="tab-grapple" data-tab="grapple">
+
+  <div class="section-label">Photo / Reference</div>
+  <div id="grapple-imgs" class="img-grid"></div>
+  <div class="img-zone" onclick="triggerUpload('grapple-upload')">
+    <input type="file" id="grapple-upload" accept="image/*" multiple onchange="handleImages(event, 'grapple')">
+    <div class="img-zone-icon">＋</div>
+    <div class="img-zone-label">画像をアップロード</div>
+    <div class="img-zone-sub">PNG · JPG · WEBP</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="blocks" id="blocks-grapple" data-tab="grapple"></div>
+  <button type="button" class="add-block-btn" onclick="openBlockModal('grapple')">＋ 新しいセクションを追加</button>
+
+  <div class="divider"></div>
+
+  <div class="section-label">フリーノート</div>
+  <div class="note-label">// FREE NOTE</div>
+  <div class="editable-note" contenteditable="true" data-note-key="grapple"></div>
+
+</div>
+
+<!-- ==================== 寝技 ==================== -->
+<div class="tab-content" id="tab-ground" data-tab="ground">
+
+  <div class="section-label">Photo / Reference</div>
+  <div id="ground-imgs" class="img-grid"></div>
+  <div class="img-zone" onclick="triggerUpload('ground-upload')">
+    <input type="file" id="ground-upload" accept="image/*" multiple onchange="handleImages(event, 'ground')">
+    <div class="img-zone-icon">＋</div>
+    <div class="img-zone-label">画像をアップロード</div>
+    <div class="img-zone-sub">PNG · JPG · WEBP</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="blocks" id="blocks-ground" data-tab="ground"></div>
+  <button type="button" class="add-block-btn" onclick="openBlockModal('ground')">＋ 新しいセクションを追加</button>
+
+  <div class="divider"></div>
+
+  <div class="section-label">フリーノート</div>
+  <div class="note-label">// FREE NOTE</div>
+  <div class="editable-note" contenteditable="true" data-note-key="ground"></div>
+
+</div>
+
+<!-- ==================== 汎用モーダル（セクション追加/編集・項目追加/編集で共用） ==================== -->
+<div class="modal-overlay" id="modal-overlay" hidden onclick="if(event.target===this) closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">タイトル</h3>
+      <button type="button" class="modal-close" onclick="closeModal()" aria-label="閉じる">✕</button>
+    </div>
+    <form id="modal-form">
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">キャンセル</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 </body>
 </html>
