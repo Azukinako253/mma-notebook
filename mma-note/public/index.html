@@ -26,6 +26,9 @@
   <button class="tab-btn" data-tab="ground" onclick="switchTab('ground')">
     <span class="tab-icon">🥋</span> 寝技
   </button>
+  <button class="tab-btn" data-tab="quiz" onclick="switchTab('quiz')">
+    <span class="tab-icon">❓</span> クイズ
+  </button>
 </nav>
 
 <!-- ==================== 打撃 ==================== -->
@@ -100,6 +103,34 @@
   <div class="section-label">フリーノート</div>
   <div class="note-label">// FREE NOTE</div>
   <div class="editable-note" contenteditable="true" data-note-key="ground"></div>
+
+</div>
+
+<!-- ==================== クイズ ==================== -->
+<div class="tab-content" id="tab-quiz" data-tab="quiz">
+
+  <div class="section-label">Section 01</div>
+  <div class="section-title" style="color:var(--accent3)">状況判断クイズ</div>
+
+  <div class="quiz-filter">
+    <label for="quiz-category">出題カテゴリ</label>
+    <select id="quiz-category" onchange="loadRandomScenario()">
+      <option value="">すべて</option>
+      <option value="strike">打撃</option>
+      <option value="grapple">組み</option>
+      <option value="ground">寝技</option>
+    </select>
+  </div>
+
+  <div id="quiz-game" class="quiz-game"></div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">Section 02</div>
+  <div class="section-title" style="color:var(--accent3)">問題の管理</div>
+
+  <div id="quiz-manage" class="quiz-manage"></div>
+  <button type="button" class="add-block-btn" onclick="openScenarioModal()">＋ 新しい問題を追加</button>
 
 </div>
 
