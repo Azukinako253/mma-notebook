@@ -25,6 +25,7 @@ const upload = multer({
 
 const BLOCK_TYPES = ["cards", "combos", "warnings", "techniques"];
 const COLORS = ["red", "yellow", "blue"];
+const CATEGORIES = ["strike", "grapple", "ground"];
 
 function normalizeColor(value) {
   return COLORS.includes(value) ? value : null;
@@ -77,6 +78,31 @@ function rowToBlock(row) {
 
 function rowToItem(row) {
   return { id: row.id, blockId: row.block_id, position: row.position, data: JSON.parse(row.data) };
+}
+
+function rowToScenario(row) {
+  return { id: row.id, category: row.category, situation: row.situation, position: row.position };
+}
+
+function rowToChoice(row) {
+  return {
+    id: row.id,
+    scenarioId: row.scenario_id,
+    label: row.label,
+    correct: row.is_correct === 1,
+    explanation: row.explanation,
+    position: row.position,
+  };
+}
+
+// Fisher-Yatesシャッフル：配列の中身をランダムな順番に並べ替える（元の配列は変更しない）
+function shuffled(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }
 
 // ---------- Notes API ----------
@@ -291,6 +317,160 @@ app.put("/api/items/:id", (req, res) => {
 // 項目を削除
 app.delete("/api/items/:id", (req, res) => {
   const info = db.prepare("DELETE FROM items WHERE id = ?").run(req.params.id);
+  if (info.changes === 0) return res.status(404).end();
+  res.status(204).end();
+});
+
+// ---------- Quiz API ----------
+// scenarios = 状況設定（「マウントを取られそうです。どうする？」）
+// scenario_choices = その選択肢（正解/不正解・解説つき）
+
+function loadScenarioWithChoices(scenarioRow) {
+  const scenario = rowToScenario(scenarioRow);
+  scenario.choices = db
+    .prepare("SELECT * FROM scenario_choices WHERE scenario_id = ? ORDER BY position ASC")
+    .all(scenarioRow.id)
+    .map(rowToChoice);
+  return scenario;
+}
+
+// 管理用：全シナリオ一覧（順番どおり。カテゴリで絞り込み可）
+app.get("/api/quiz", (req, res) => {
+  const { category } = req.query;
+  const rows = category
+    ? db.prepare("SELECT * FROM scenarios WHERE category = ? ORDER BY position ASC").all(category)
+    : db.prepare("SELECT * FROM scenarios ORDER BY category ASC, position ASC").all();
+  res.json(rows.map(loadScenarioWithChoices));
+});
+
+// 出題用：ランダムに1問。選択肢の並び順もシャッフルする
+app.get("/api/quiz/random", (req, res) => {
+  const { category } = req.query;
+  const row = category
+    ? db.prepare("SELECT * FROM scenarios WHERE category = ? ORDER BY RANDOM() LIMIT 1").get(category)
+    : db.prepare("SELECT * FROM scenarios ORDER BY RANDOM() LIMIT 1").get();
+  if (!row) return res.status(404).json({ error: "問題がまだ登録されていません" });
+
+  const scenario = loadScenarioWithChoices(row);
+  scenario.choices = shuffled(scenario.choices);
+  res.json(scenario);
+});
+
+// 新しいシナリオ（選択肢も一緒に）を追加
+app.post("/api/quiz", (req, res) => {
+  const { category, situation, choices } = req.body ?? {};
+  if (!CATEGORIES.includes(category)) {
+    return res.status(400).json({ error: "category が不正です" });
+  }
+  if (typeof situation !== "string" || situation.trim() === "") {
+    return res.status(400).json({ error: "situation を入力してください" });
+  }
+  if (!Array.isArray(choices) || choices.length < 2) {
+    return res.status(400).json({ error: "選択肢は2つ以上必要です" });
+  }
+
+  const { maxPosition } = db
+    .prepare("SELECT COALESCE(MAX(position), -1) AS maxPosition FROM scenarios WHERE category = ?")
+    .get(category);
+
+  const insertScenario = db.prepare(
+    "INSERT INTO scenarios (category, situation, position) VALUES (?, ?, ?)"
+  );
+  const insertChoice = db.prepare(
+    `INSERT INTO scenario_choices (scenario_id, label, is_correct, explanation, position)
+     VALUES (?, ?, ?, ?, ?)`
+  );
+
+  const insertAll = db.transaction(() => {
+    const info = insertScenario.run(category, situation.trim(), maxPosition + 1);
+    choices.forEach((choice, position) => {
+      insertChoice.run(
+        info.lastInsertRowid,
+        typeof choice?.label === "string" ? choice.label : "",
+        choice?.correct ? 1 : 0,
+        typeof choice?.explanation === "string" ? choice.explanation : "",
+        position
+      );
+    });
+    return info.lastInsertRowid;
+  });
+
+  const scenarioId = insertAll();
+  const row = db.prepare("SELECT * FROM scenarios WHERE id = ?").get(scenarioId);
+  res.status(201).json(loadScenarioWithChoices(row));
+});
+
+// シナリオ本文（状況・カテゴリ）を編集
+app.put("/api/quiz/:id", (req, res) => {
+  const existing = db.prepare("SELECT * FROM scenarios WHERE id = ?").get(req.params.id);
+  if (!existing) return res.status(404).end();
+
+  const category = CATEGORIES.includes(req.body?.category) ? req.body.category : existing.category;
+  const situation = typeof req.body?.situation === "string" && req.body.situation.trim() !== ""
+    ? req.body.situation.trim()
+    : existing.situation;
+
+  db.prepare("UPDATE scenarios SET category = ?, situation = ? WHERE id = ?").run(
+    category, situation, req.params.id
+  );
+
+  const row = db.prepare("SELECT * FROM scenarios WHERE id = ?").get(req.params.id);
+  res.json(loadScenarioWithChoices(row));
+});
+
+// シナリオごと削除（選択肢も一緒に消える）
+app.delete("/api/quiz/:id", (req, res) => {
+  const info = db.prepare("DELETE FROM scenarios WHERE id = ?").run(req.params.id);
+  if (info.changes === 0) return res.status(404).end();
+  res.status(204).end();
+});
+
+// シナリオに選択肢を追加
+app.post("/api/quiz/:scenarioId/choices", (req, res) => {
+  const scenario = db.prepare("SELECT * FROM scenarios WHERE id = ?").get(req.params.scenarioId);
+  if (!scenario) return res.status(404).json({ error: "シナリオが見つかりません" });
+
+  const { maxPosition } = db
+    .prepare("SELECT COALESCE(MAX(position), -1) AS maxPosition FROM scenario_choices WHERE scenario_id = ?")
+    .get(scenario.id);
+
+  const info = db
+    .prepare(
+      `INSERT INTO scenario_choices (scenario_id, label, is_correct, explanation, position)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .run(
+      scenario.id,
+      typeof req.body?.label === "string" ? req.body.label : "",
+      req.body?.correct ? 1 : 0,
+      typeof req.body?.explanation === "string" ? req.body.explanation : "",
+      maxPosition + 1
+    );
+
+  const row = db.prepare("SELECT * FROM scenario_choices WHERE id = ?").get(info.lastInsertRowid);
+  res.status(201).json(rowToChoice(row));
+});
+
+// 選択肢を編集
+app.put("/api/quiz/choices/:id", (req, res) => {
+  const existing = db.prepare("SELECT * FROM scenario_choices WHERE id = ?").get(req.params.id);
+  if (!existing) return res.status(404).end();
+
+  const label = typeof req.body?.label === "string" ? req.body.label : existing.label;
+  const correct = "correct" in (req.body ?? {}) ? (req.body.correct ? 1 : 0) : existing.is_correct;
+  const explanation = typeof req.body?.explanation === "string" ? req.body.explanation : existing.explanation;
+
+  db.prepare(
+    "UPDATE scenario_choices SET label = ?, is_correct = ?, explanation = ? WHERE id = ?"
+  ).run(label, correct, explanation, req.params.id);
+
+  const row = db.prepare("SELECT * FROM scenario_choices WHERE id = ?").get(req.params.id);
+  res.json(rowToChoice(row));
+});
+
+// 選択肢を削除
+app.delete("/api/quiz/choices/:id", (req, res) => {
+  const info = db.prepare("DELETE FROM scenario_choices WHERE id = ?").run(req.params.id);
   if (info.changes === 0) return res.status(404).end();
   res.status(204).end();
 });

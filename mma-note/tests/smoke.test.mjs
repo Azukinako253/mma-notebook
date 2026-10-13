@@ -7,7 +7,7 @@ import { test } from "node:test";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 test("メインの HTML が public にある", () => {
-  const path = join(root, "public", "mma-notebook.html");
+  const path = join(root, "public", "index.html");
   const html = readFileSync(path, "utf8");
   assert.match(html, /MMA NOTEBOOK/);
 });
@@ -19,5 +19,5 @@ test("ビルド後は dist に index がある", (t) => {
     return;
   }
   const html = readFileSync(path, "utf8");
-  assert.match(html, /mma-notebook\.html/);
+  assert.match(html, /MMA NOTEBOOK/);
 });

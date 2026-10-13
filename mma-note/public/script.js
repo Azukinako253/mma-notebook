@@ -2,9 +2,15 @@
 
 const TABS = ["strike", "grapple", "ground"];
 const TYPE_LABELS = { cards: "カード", combos: "コンビネーション", warnings: "警告", techniques: "技一覧テーブル" };
+const CATEGORIES = ["strike", "grapple", "ground"];
+const CATEGORY_LABELS = { strike: "打撃", grapple: "組み", ground: "寝技" };
 
 // 状態はサーバーからの取得結果をタブごとに保持しておく（編集モーダルで既存データを引くため）
-const state = { blocks: { strike: [], grapple: [], ground: [] } };
+const state = {
+  blocks: { strike: [], grapple: [], ground: [] },
+  quizScenarios: [], // クイズ管理一覧
+  quizCurrent: null, // 今出題中の問題
+};
 
 // innerHTMLに差し込む前にユーザー入力をエスケープする（HTMLとして解釈されるのを防ぐ）
 function esc(value) {
@@ -49,6 +55,12 @@ function findBlock(tab, blockId) {
 }
 function findItem(block, itemId) {
   return block?.items.find((i) => String(i.id) === String(itemId));
+}
+function findScenario(scenarioId) {
+  return state.quizScenarios.find((s) => String(s.id) === String(scenarioId));
+}
+function findChoice(scenario, choiceId) {
+  return scenario?.choices.find((c) => String(c.id) === String(choiceId));
 }
 
 // ==================== タブ切り替え ====================
@@ -247,6 +259,220 @@ function renderTechniques(block) {
   `;
 }
 
+// ==================== クイズ（出題） ====================
+
+async function loadRandomScenario() {
+  const category = document.getElementById("quiz-category").value;
+  const game = document.getElementById("quiz-game");
+  game.innerHTML = `<div class="quiz-loading">問題を読み込み中...</div>`;
+
+  const url = category ? `/api/quiz/random?category=${category}` : "/api/quiz/random";
+  try {
+    const scenario = await api(url);
+    state.quizCurrent = scenario;
+    renderQuizGame(scenario, null);
+  } catch {
+    game.innerHTML = `<div class="quiz-loading">この条件の問題がまだありません。下の「問題の管理」から追加してください。</div>`;
+  }
+}
+
+// selectedChoiceId が null のときは「未回答」、値が入っていれば「回答済み・正誤を表示」
+function renderQuizGame(scenario, selectedChoiceId) {
+  const answered = selectedChoiceId != null;
+
+  const choicesHtml = scenario.choices
+    .map((choice) => {
+      let stateClass = "";
+      if (answered) {
+        if (String(choice.id) === String(selectedChoiceId)) stateClass = choice.correct ? "is-correct" : "is-wrong";
+        else if (choice.correct) stateClass = "is-correct-reveal";
+      }
+      const explanation = answered && choice.explanation ? `<div class="quiz-explanation">${esc(choice.explanation)}</div>` : "";
+      return `
+        <button type="button" class="quiz-choice-btn ${stateClass}" data-action="answer" data-choice-id="${choice.id}" ${answered ? "disabled" : ""}>
+          <div class="quiz-choice-text">${esc(choice.label)}</div>
+          ${explanation}
+        </button>
+      `;
+    })
+    .join("");
+
+  const nextBtn = answered
+    ? `<button type="button" class="btn btn-primary quiz-next-btn" onclick="loadRandomScenario()">次の問題へ →</button>`
+    : "";
+
+  document.getElementById("quiz-game").innerHTML = `
+    <div class="quiz-situation">
+      <span class="tag">${CATEGORY_LABELS[scenario.category]}</span>
+      <p>${esc(scenario.situation)}</p>
+    </div>
+    <div class="quiz-choices">${choicesHtml}</div>
+    ${nextBtn}
+  `;
+}
+
+function handleQuizAnswer(choiceId) {
+  if (!state.quizCurrent) return;
+  renderQuizGame(state.quizCurrent, choiceId);
+}
+
+// ==================== クイズ（問題の管理） ====================
+
+async function loadQuizManage() {
+  const scenarios = await api("/api/quiz");
+  state.quizScenarios = scenarios;
+  renderQuizManage(scenarios);
+}
+
+function renderQuizManage(scenarios) {
+  document.getElementById("quiz-manage").innerHTML = scenarios.map(renderScenarioCard).join("");
+}
+
+function renderScenarioCard(scenario) {
+  const choicesHtml = scenario.choices
+    .map(
+      (choice) => `
+    <li class="quiz-choice-row-view">
+      <span class="quiz-choice-mark">${choice.correct ? "✓" : "✕"}</span>
+      <span class="quiz-choice-row-label">${esc(choice.label)}</span>
+      <span class="item-actions">
+        <button type="button" class="icon-btn" data-action="edit-choice" data-scenario-id="${scenario.id}" data-choice-id="${choice.id}" title="編集">✎</button>
+        <button type="button" class="icon-btn" data-action="delete-choice" data-scenario-id="${scenario.id}" data-choice-id="${choice.id}" title="削除">✕</button>
+      </span>
+    </li>
+  `
+    )
+    .join("");
+
+  return `
+    <div class="quiz-scenario-card">
+      <div class="quiz-scenario-head">
+        <span class="tag">${CATEGORY_LABELS[scenario.category]}</span>
+        <span class="quiz-scenario-situation">${esc(scenario.situation)}</span>
+        <span class="block-actions">
+          <button type="button" class="icon-btn" data-action="edit-scenario" data-scenario-id="${scenario.id}" title="編集">✎</button>
+          <button type="button" class="icon-btn" data-action="delete-scenario" data-scenario-id="${scenario.id}" title="削除">🗑</button>
+        </span>
+      </div>
+      <ul class="quiz-choice-list">${choicesHtml}</ul>
+      <button type="button" class="add-item-btn" data-action="add-choice" data-scenario-id="${scenario.id}">＋ 選択肢を追加</button>
+    </div>
+  `;
+}
+
+async function deleteScenario(scenarioId) {
+  if (!confirm("この問題を削除しますか？選択肢もすべて削除されます。")) return;
+  await api(`/api/quiz/${scenarioId}`, "DELETE");
+  await loadQuizManage();
+}
+
+async function deleteChoice(choiceId) {
+  if (!confirm("この選択肢を削除しますか？")) return;
+  await api(`/api/quiz/choices/${choiceId}`, "DELETE");
+  await loadQuizManage();
+}
+
+// 新しい問題を作るときだけ、選択肢の入力欄を「増やす/減らす」できるようにする
+function setupQuizChoiceRows() {
+  const rowsContainer = document.getElementById("quiz-choice-rows");
+  const addRow = () => {
+    const row = document.createElement("div");
+    row.className = "quiz-choice-row";
+    row.innerHTML = `
+      <input type="text" class="qc-label" placeholder="選択肢の内容">
+      <label class="qc-correct-label"><input type="checkbox" class="qc-correct"> 正解</label>
+      <textarea class="qc-explanation" rows="2" placeholder="解説（任意）"></textarea>
+      <button type="button" class="icon-btn" data-action="remove-choice-row" title="この選択肢を削除">✕</button>
+    `;
+    rowsContainer.appendChild(row);
+  };
+  addRow();
+  addRow();
+  document.getElementById("quiz-add-choice-row").addEventListener("click", addRow);
+  rowsContainer.addEventListener("click", (event) => {
+    if (event.target.dataset.action !== "remove-choice-row") return;
+    if (rowsContainer.children.length <= 2) {
+      alert("選択肢は最低2つ必要です");
+      return;
+    }
+    event.target.closest(".quiz-choice-row").remove();
+  });
+}
+
+function collectQuizChoiceRows() {
+  return Array.from(document.querySelectorAll("#quiz-choice-rows .quiz-choice-row")).map((row) => ({
+    label: row.querySelector(".qc-label").value,
+    correct: row.querySelector(".qc-correct").checked,
+    explanation: row.querySelector(".qc-explanation").value,
+  }));
+}
+
+function openScenarioModal(existingScenario) {
+  const isEdit = !!existingScenario;
+  modalTitleEl.textContent = isEdit ? "問題を編集" : "新しい問題を追加";
+
+  const categoryOptions = CATEGORIES.map(
+    (c) => `<option value="${c}" ${c === (existingScenario?.category ?? "ground") ? "selected" : ""}>${CATEGORY_LABELS[c]}</option>`
+  ).join("");
+
+  const choicesField = isEdit
+    ? ""
+    : `<div class="field">
+        <label>選択肢（2つ以上・複数を「正解」にしてもOK）</label>
+        <div id="quiz-choice-rows"></div>
+        <button type="button" class="add-item-btn" id="quiz-add-choice-row">＋ 選択肢を増やす</button>
+      </div>`;
+
+  modalBodyEl.innerHTML = `
+    <div class="field"><label for="f-category">カテゴリ</label><select id="f-category">${categoryOptions}</select></div>
+    <div class="field"><label for="f-situation">状況設定</label><textarea id="f-situation" rows="3" required>${esc(existingScenario?.situation ?? "")}</textarea></div>
+    ${choicesField}
+  `;
+  if (!isEdit) setupQuizChoiceRows();
+
+  currentSubmitHandler = async () => {
+    const category = document.getElementById("f-category").value;
+    const situation = document.getElementById("f-situation").value;
+
+    if (isEdit) {
+      await api(`/api/quiz/${existingScenario.id}`, "PUT", { category, situation });
+    } else {
+      const choices = collectQuizChoiceRows();
+      await api("/api/quiz", "POST", { category, situation, choices });
+    }
+    closeModal();
+    await loadQuizManage();
+  };
+  showModal();
+}
+
+function openChoiceModal(scenario, existingChoice) {
+  const isEdit = !!existingChoice;
+  modalTitleEl.textContent = isEdit ? "選択肢を編集" : "選択肢を追加";
+
+  modalBodyEl.innerHTML = `
+    <div class="field"><label for="f-label">選択肢の内容</label><input id="f-label" type="text" required value="${esc(existingChoice?.label ?? "")}"></div>
+    <div class="field"><label><input type="checkbox" id="f-correct" ${existingChoice?.correct ? "checked" : ""}> これは正解にする</label></div>
+    <div class="field"><label for="f-explanation">解説</label><textarea id="f-explanation" rows="3">${esc(existingChoice?.explanation ?? "")}</textarea></div>
+  `;
+
+  currentSubmitHandler = async () => {
+    const payload = {
+      label: document.getElementById("f-label").value,
+      correct: document.getElementById("f-correct").checked,
+      explanation: document.getElementById("f-explanation").value,
+    };
+    if (isEdit) {
+      await api(`/api/quiz/choices/${existingChoice.id}`, "PUT", payload);
+    } else {
+      await api(`/api/quiz/${scenario.id}/choices`, "POST", payload);
+    }
+    closeModal();
+    await loadQuizManage();
+  };
+  showModal();
+}
+
 // ==================== モーダル（追加・編集フォーム） ====================
 
 const modalOverlay = document.getElementById("modal-overlay");
@@ -417,6 +643,17 @@ document.body.addEventListener("click", (event) => {
     return;
   }
 
+  // ---- クイズ関連のアクション ----
+  if (action === "answer") return handleQuizAnswer(btn.dataset.choiceId);
+  if (action === "edit-scenario") return openScenarioModal(findScenario(btn.dataset.scenarioId));
+  if (action === "delete-scenario") return deleteScenario(btn.dataset.scenarioId);
+  if (action === "add-choice") return openChoiceModal(findScenario(btn.dataset.scenarioId));
+  if (action === "edit-choice") {
+    const scenario = findScenario(btn.dataset.scenarioId);
+    return openChoiceModal(scenario, findChoice(scenario, btn.dataset.choiceId));
+  }
+  if (action === "delete-choice") return deleteChoice(btn.dataset.choiceId);
+
   const tab = btn.closest("[data-tab]")?.dataset.tab;
   if (!tab) return;
   const block = btn.dataset.blockId ? findBlock(tab, btn.dataset.blockId) : null;
@@ -433,7 +670,11 @@ document.body.addEventListener("click", (event) => {
 async function init() {
   await loadNotes();
   setupNoteAutosave();
-  await Promise.all(TABS.map((tab) => Promise.all([loadBlocks(tab), loadImages(tab)])));
+  await Promise.all([
+    ...TABS.map((tab) => Promise.all([loadBlocks(tab), loadImages(tab)])),
+    loadRandomScenario(),
+    loadQuizManage(),
+  ]);
 }
 
 document.addEventListener("DOMContentLoaded", init);
